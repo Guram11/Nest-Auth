@@ -1,33 +1,32 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  NotFoundException,
+  forwardRef,
+} from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { User } from './user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IPaginationOptions, paginate } from 'nestjs-typeorm-paginate';
-import { FilterUsersDto } from './dtos';
+import { FilterUsersDto, UpdateUserDto } from './dtos';
 import { OrderByQueryDto } from './dtos/orderByQuery.dto';
 import { RefreshToken } from 'src/auth/token.entity';
+import { IUserRepository } from './repositories/IUserRepository';
 
 @Injectable()
 export class UserService {
   constructor(
-    @InjectRepository(User) private repo: Repository<User>,
     @InjectRepository(RefreshToken)
     private readonly refreshTokenRepository: Repository<RefreshToken>,
+    @Inject('userRepository')
+    private readonly userRepository: IUserRepository,
   ) {}
 
   findAllUsers(
     paginationQuery: IPaginationOptions,
     sortQuery: OrderByQueryDto,
   ) {
-    const paginationParameters = {
-      limit: paginationQuery.limit,
-      page: paginationQuery.page,
-    };
-
-    const qb = this.repo.createQueryBuilder('q');
-    qb.orderBy(`q.${sortQuery.property || 'id'}`, sortQuery.orderBy);
-
-    return paginate<User>(qb, paginationParameters);
+    return this.userRepository.findAll(paginationQuery, sortQuery);
   }
 
   async getUsersWithFilters(
@@ -37,7 +36,7 @@ export class UserService {
   ) {
     const { search } = filterDto;
 
-    let { items } = await this.findAllUsers(paginationQuery, sortQuery);
+    let items = await this.findAllUsers(paginationQuery, sortQuery);
 
     if (search) {
       items = items.filter(
@@ -53,37 +52,30 @@ export class UserService {
   }
 
   async findOne(id: number): Promise<User> {
-    const user = await this.repo.findOne({
-      relations: {
-        tokens: true,
-      },
-      where: { id },
-    });
+    const user = await this.userRepository.findById(id);
 
     if (!user) {
-      throw new NotFoundException('No user found with this ID');
+      throw new Error('User not found.');
     }
 
     return user;
   }
 
-  async update(id: number, attributes: Partial<User>) {
-    const user = await this.repo.findOne({ where: { id } });
+  async update(id: number, attributes: UpdateUserDto) {
+    const user = await this.userRepository.findById(id);
 
     if (!user) {
-      throw new NotFoundException('No user found with this ID');
+      throw new Error('User not found.');
     }
 
-    Object.assign(user, attributes);
-
-    return this.repo.save(user);
+    return this.userRepository.updateOne(id, attributes);
   }
 
-  async remove(id: number): Promise<User> {
-    const user = await this.repo.findOne({ where: { id } });
+  async remove(id: number) {
+    const user = await this.userRepository.findById(id);
 
     if (!user) {
-      throw new NotFoundException('No user found with this ID');
+      throw new Error('User not found.');
     }
 
     const tokens = await this.refreshTokenRepository.find({
@@ -94,6 +86,6 @@ export class UserService {
 
     await this.refreshTokenRepository.remove(tokens);
 
-    return this.repo.remove(user);
+    await this.userRepository.destroy(id);
   }
 }

@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import * as argon from 'argon2';
 import * as bcrypt from 'bcrypt';
 import { Roles, User } from 'src/user/user.entity';
 import { Repository } from 'typeorm';

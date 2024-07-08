@@ -10,6 +10,7 @@ import { RtStrategy } from './strategies/rt.strategy';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import { Email } from 'src/utils/email';
 import { RefreshToken } from './token.entity';
+import { UserRepository } from 'src/user/repositories/user.repository';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { RefreshToken } from './token.entity';
     RtStrategy,
     JwtService,
     Email,
+    UserRepository,
   ],
 })
 export class AuthModule {}
